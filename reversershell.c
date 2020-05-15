@@ -116,7 +116,7 @@ void recieve() {
 	printf(tmp);
 	auth();
 
-	FILE* ptr = (strcmp(buffer, "B") == 0) ? fopen(filename, "wb") : fopen(filename, "wb"); //if buffer == B then write bytes else just write
+	FILE* ptr = fopen(filename, "wb"); //if buffer == B then write bytes else just write
 	int extra = (totalbytes % DEFAULT_BUFLEN);
 	
 	char* tmpbuff = NULL; 
