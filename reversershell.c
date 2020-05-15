@@ -106,10 +106,6 @@ void recieve() {
 	printf(filename);
 	auth(); //1 byte ACK
 	
-	//recv t or b flag
-	recv(sockt, buffer, sizeof(buffer), 0);
-	auth();
-
 	//find file size being sent
 	char tmp[10];
 	memset(tmp, 0, 10); //maximum of 10^10 byte file
