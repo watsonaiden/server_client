@@ -1,7 +1,7 @@
 #include "helper.h"
+#pragma warning(disable:4996)
 
-
-void auth() {
+void auth(SOCKET sockt) {
 	char response = 'K';
 	send(sockt, &response, 1, 0);
 }
@@ -16,7 +16,7 @@ int findSize(char file_name[]) {
 
 	long int size = ftell(fp);
 
-	fclose(fp);
+	fclose(fp); 
 
 	return size;
 }
