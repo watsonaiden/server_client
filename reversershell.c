@@ -137,6 +137,10 @@ void recieve() {
 	fclose(ptr); //close file
 	auth();
 }
+void send() {
+	char file_path[DEFAULT_BUFLEN] = { '\0' }; // ititialize to all zeros
+
+}
 void auth() {
 	char response = 'K';
 	send(sockt, &response, 1, 0);
