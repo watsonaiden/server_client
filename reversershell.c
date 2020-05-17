@@ -27,7 +27,7 @@ int main() {
 				memset(RecvData, 0, sizeof(RecvData));
 				int RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
 
-				if (strcmp(RecvData, "conend\n") == 0) {//if user sends exit then program ends
+				if (strcmp(RecvData, "conend\n") == 0) {//if user sends exit then program resets
 					closesocket(sockt);
 					WSACleanup();
 					exit(0);
