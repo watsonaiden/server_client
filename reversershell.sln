@@ -5,6 +5,12 @@ VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "reversershell", "reversershell.vcxproj", "{39AD8172-601B-46DF-AC1C-9023E71B72D1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{59A1AE38-02D1-4DDB-A3DB-70C334C3CCAE}"
+	ProjectSection(SolutionItems) = preProject
+		helper.c = helper.c
+		helper.h = helper.h
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
