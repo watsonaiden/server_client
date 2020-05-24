@@ -5,7 +5,7 @@
 #include <stdio.h>
 int findSize(char file_name[]);
 
-void auth();
+void auth(SOCKET sockt);
 
 
 #endif

