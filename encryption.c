@@ -1,9 +1,20 @@
 #include "encryption.h"
 
 #pragma warning(disable : 4996)
+unsigned char* key = NULL;
+unsigned char* iv = NULL;
 
-void getKey(FILE* FP, unsigned char* loc) {
-    fread(loc, 16, 1, FP);
+void init_Key(FILE* FP) {
+    while (key == NULL) {
+        key = malloc(32 * sizeof(unsigned char));
+    }
+    fread(key, 32, 1, FP);
+}
+void init_IV(FILE* FP) {
+    while (iv == NULL) {
+        iv = malloc(16 * sizeof(unsigned char));
+    }
+    fread(iv, 16, 1, FP);
 }
 
 void handleErrors(void)
@@ -12,9 +23,16 @@ void handleErrors(void)
 	abort();
 }
 
-int encrypt(unsigned char* plaintext, int plaintext_len, unsigned char* key,
-    unsigned char* iv, unsigned char* ciphertext)
+int encrypt(unsigned char* plaintext, int plaintext_len, unsigned char* ciphertext)
 {
+    FILE* keypnt = fopen("key.key", "rb");
+    init_Key(keypnt); //moves key from file into key var
+    fclose(keypnt);
+    /* A 128 bit IV */
+
+    FILE* ivpnt = fopen("IV.key", "rb");
+    init_IV(ivpnt);
+    fclose(ivpnt);
     EVP_CIPHER_CTX* ctx;
 
     int len;
@@ -42,23 +60,29 @@ int encrypt(unsigned char* plaintext, int plaintext_len, unsigned char* key,
     if (1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
         handleErrors();
     ciphertext_len = len;
-
     /*
      * Finalise the encryption. Further ciphertext bytes may be written at
      * this stage.
-     */
+    */
     if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
         handleErrors();
     ciphertext_len += len;
-
+    
     /* Clean up */
     EVP_CIPHER_CTX_free(ctx);
 
     return ciphertext_len;
 }
-int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key,
-    unsigned char* iv, unsigned char* plaintext)
+int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* plaintext)
 {
+    FILE* keypnt = fopen("key.key", "rb");
+    init_Key(keypnt); //moves key from file into key var
+    fclose(keypnt);
+    /* A 128 bit IV */
+
+    FILE* ivpnt = fopen("IV.key", "rb");
+    init_IV(ivpnt);
+    fclose(ivpnt);
     EVP_CIPHER_CTX* ctx;
 
     int len;
@@ -86,13 +110,13 @@ int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key,
     if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
         handleErrors();
     plaintext_len = len;
-
     /*
      * Finalise the decryption. Further plaintext bytes may be written at
      * this stage.
      */
     if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len))
         handleErrors();
+    
     plaintext_len += len;
 
     /* Clean up */
@@ -107,17 +131,8 @@ int trail() {
  * real application? :-)
  */
 
- /* A 256 bit key */
-    FILE* keypnt = fopen("key.key", "rb");
-    unsigned char* key = malloc(32*sizeof(unsigned char));
-    getKey(keypnt, key);
-
-    /* A 128 bit IV */
-    unsigned char* iv = (unsigned char*)"0123456789012345";
-
     /* Message to be encrypted */
-    unsigned char* plaintext =
-        (unsigned char*)"The quick brown fox jumps over the lazy dog";
+    unsigned char* plaintext = (unsigned char*)"ping\n";
 
     /*
      * Buffer for ciphertext. Ensure the buffer is long enough for the
@@ -132,16 +147,14 @@ int trail() {
     int decryptedtext_len, ciphertext_len;
 
     /* Encrypt the plaintext */
-    ciphertext_len = encrypt(plaintext, strlen((char*)plaintext), key, iv,
-        ciphertext);
+    ciphertext_len = encrypt(plaintext, strlen((char*)plaintext),ciphertext);
 
     /* Do something useful with the ciphertext here */
     printf("Ciphertext is:\n");
     BIO_dump_fp(stdout, (const char*)ciphertext, ciphertext_len);
 
     /* Decrypt the ciphertext */
-    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv,
-        decryptedtext);
+    decryptedtext_len = decrypt(ciphertext, ciphertext_len,decryptedtext);
 
     /* Add a NULL terminator. We are expecting printable text */
     decryptedtext[decryptedtext_len] = '\0';
@@ -150,8 +163,7 @@ int trail() {
     printf("Decrypted text is:\n");
     printf("%s\n", decryptedtext);
     
-    //clean up
     free(key);
-
+    free(iv);
     return 0;
 }

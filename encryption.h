@@ -9,11 +9,10 @@
 
 
 void handleErrors(void);
-
-int encrypt(unsigned char* plaintext, int plaintext_len, unsigned char* key,
-    unsigned char* iv, unsigned char* ciphertext);
-int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* key,
-    unsigned char* iv, unsigned char* plaintext);
+void init_Key(FILE* FP);
+void init_IV(FILE* FP);
+int encrypt(unsigned char* plaintext, int plaintext_len, unsigned char* ciphertext);
+int decrypt(unsigned char* ciphertext, int ciphertext_len, unsigned char* plaintext);
 int trail();
 
 #endif //ENCRYPTION_H

