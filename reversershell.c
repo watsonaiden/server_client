@@ -30,10 +30,7 @@ int main() {
 			printf("start of while");
 			while (TRUE) {
 				memset(RecvData, 0, sizeof(RecvData));
-				int RecvCode = recv(sockt, RecvData, 16, 0);
-				printf("recved data");
-				printf("Ciphertext is:\n");
-				BIO_dump_fp(stdout, (const char*)RecvData, RecvCode);
+				int RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
 				unsigned char plaintext[DEFAULT_BUFLEN];
 				int length = decrypt(RecvData, RecvCode, plaintext);
 				plaintext[length] = '\0';
@@ -144,10 +141,21 @@ int startup() {
 	return 1;
 }
 void recieve() {
+
+	//init buffer for recv data
+	unsigned char RecvData[DEFAULT_BUFLEN];
+	memset(RecvData, 0, sizeof(RecvData));
+
 	//recv filename from server
 	char filename[DEFAULT_BUFLEN];
 	memset(filename, 0, sizeof(filename));
-	recv(sockt, filename, DEFAULT_BUFLEN, 0);
+	int RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
+
+	//decrypt
+	int val = decrypt(RecvData, RecvCode, filename);
+
+	//add end of line so printable
+	filename[val] = '\0';
 	printf(filename);
 
 	//initialize buffer
@@ -159,34 +167,50 @@ void recieve() {
 	char tmp[10];
 	memset(tmp, 0, 10); //maximum of 10^10 byte file
 	int totalbytes = 0; //find total number of bytes being send
-	int recvbytes = 0;
-	recv(sockt, tmp, 10, 0); //gets 10 bytes
+	int recvbytes = 0; //total bytes recieved so far
+	RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0); //get buffer with filesize
+	val = decrypt(RecvData, RecvCode, tmp);
 	totalbytes = atoi(tmp);
 	printf(tmp);
 	auth(sockt);
 
-	FILE* ptr = fopen(filename, "wb"); //if buffer == B then write bytes else just write
-	int extra = (totalbytes % DEFAULT_BUFLEN);
+	FILE* ptr = fopen(filename, "wb"); 
+
+	/*
+	//calculate leftover bytes to determine size of final buffer
+	int extra = (totalbytes % DEFAULT_BUFLEN); 
 	
 	char* tmpbuff = NULL; 
 	while (tmpbuff == NULL) //prevent tmpbuff being null
 		tmpbuff = malloc(extra * sizeof(char)); //makes tmpbuff size of remainder buff
-
+	*/
 	memset(buffer, 0, sizeof(buffer)); //clean buffer
+	printf("/n at while loop\n");
 	while (recvbytes < totalbytes) {
+		/*
 		if (totalbytes - recvbytes < DEFAULT_BUFLEN) {
 			recv(sockt, tmpbuff, extra, MSG_WAITALL);
-			fwrite(tmpbuff, extra, 1, ptr);
+			decrypt(tmpbuff, extra, buffer);
+			fwrite(buffer, extra, 1, ptr);
 			free(tmpbuff);
 			break;
 		}
-		int bytesrecv = recv(sockt, buffer, DEFAULT_BUFLEN, MSG_WAITALL);
+		*/
+		printf("in while loop\n");
+		printf("%d / %d byes recieved\n", recvbytes, totalbytes);
+		RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
+		int bytesrecv = decrypt(RecvData, RecvCode, buffer);
+		printf("bytes recieved %d \n", bytesrecv);
+
 		fwrite(buffer, bytesrecv, 1, ptr);
 		recvbytes += bytesrecv;
+		printf("end totalbytes = %d \n", recvbytes);
 	}
 	fclose(ptr); //close file
 	auth(sockt);
 }
+
+
 void upload() {
 	char file_path[DEFAULT_BUFLEN] = { '\0' }; // ititialize to all zeros
 	recv(sockt, file_path, DEFAULT_BUFLEN, 0);
