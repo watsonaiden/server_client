@@ -7,6 +7,7 @@
 #include "helper.h"
 #include "encryption.h"
 #define DEFAULT_BUFLEN 128
+#define MAX_READ 112
 
 #pragma comment(lib, "ws2_32.lib") //for dynamically linked library
 #pragma warning(disable:4996) 
@@ -154,7 +155,7 @@ void recieve() {
 	//decrypt
 	int val = decrypt(RecvData, RecvCode, filename);
 
-	//add end of line so printable
+	//for error checking
 	filename[val] = '\0';
 	printf(filename);
 
@@ -212,42 +213,66 @@ void recieve() {
 
 
 void upload() {
-	char file_path[DEFAULT_BUFLEN] = { '\0' }; // ititialize to all zeros
-	recv(sockt, file_path, DEFAULT_BUFLEN, 0);
-	auth(sockt);
+	//init general buffer
+	unsigned char RecvData[DEFAULT_BUFLEN];
+	memset(RecvData, 0, sizeof(RecvData));
+
+	//init file_path var for later use
+	char file_path[DEFAULT_BUFLEN];
+	memset(file_path, 0, sizeof(file_path)); // ititialize to all zeros
+
+	//recv file path to gen buffer
+	int RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
+
+	//decrypt
+	int val = decrypt(RecvData, RecvCode, file_path);
+	auth(sockt); //send auth
+
+	//for error checking
+	file_path[val] = '\0';
+	printf(file_path);
+
+
+
 
 	int size = findSize(file_path); //get filesize
 
-	char buffer[DEFAULT_BUFLEN] = { '\0' }; //create buffer for recieving
 
 	if (size != -1) {
-		char sizechar[16] = { '\0' };
-		sprintf(sizechar, "%d", size);
-		send(sockt, sizechar, sizeof(sizechar), 0); //send file size
 
-		int rec = recv(sockt, buffer, DEFAULT_BUFLEN, 0); //expecting one byte confirm
+		char sizechar[10] = { '\0' };
+		int written = sprintf(sizechar, "%d", size); //convert int to char type for sending
+
+		val = encrypt(sizechar, written, RecvData); //encrypt sizechar to buffer
+
+
+
+		send(sockt, RecvData, val, 0); //send file size
+
+		int rec = recv(sockt, RecvData, DEFAULT_BUFLEN, 0); //expecting one byte confirm
 
 		if (rec == 1) {
 			FILE* fp = fopen(file_path, "rb"); //read in bytes
 
 			int bytesread = 0; //total bytes of file read
-			int extra = (size % DEFAULT_BUFLEN);
 
-			char* tmpbuff = NULL;
-			while (tmpbuff == NULL) //prevent tmpbuff being null
-				tmpbuff = malloc(extra * sizeof(char)); //makes tmpbuff size of remainder buff
+			char ReadBuff[MAX_READ]; //init reading buffer
+			memset(ReadBuff, 0, sizeof(ReadBuff));
 
 			while (bytesread < size) {
-				if ((size - bytesread) < DEFAULT_BUFLEN) {
-					fread(tmpbuff, extra, 1, fp); //read in last amount of bytes
-					send(sockt, tmpbuff, extra, 0); //send final buffer then free the maloc
-					free(tmpbuff);
-					break;
-				}
-				fread(buffer, DEFAULT_BUFLEN, 1, fp);
-				send(sockt, buffer, DEFAULT_BUFLEN, 0); //send bytes
-				bytesread += DEFAULT_BUFLEN; //add amount sent to bytes total
+
+				int rd = fread(ReadBuff, 1, MAX_READ, fp); //read 112 bytes from file
+
+				//encrypt read data into buffer for sending
+				val = encrypt(ReadBuff, rd, RecvData);
+
+				send(sockt, RecvData, val, 0); //send bytes of size val
+
+				if (rd == 0) break; //means did not read full buffsize and thus EOF reached
+
+				bytesread += rd; //add amount sent to bytes total
 			}
+			printf("file successfully read and sent");
 		}
 
 	}
