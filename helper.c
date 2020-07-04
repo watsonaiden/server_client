@@ -1,7 +1,8 @@
 #include "helper.h"
+#include "start.h"
 #pragma warning(disable:4996)
-
-void auth(SOCKET sockt) {
+SOCKET sockt;
+void auth() {
 	char response = 'K';
 	send(sockt, &response, 1, 0);
 }

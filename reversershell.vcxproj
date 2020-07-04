@@ -143,12 +143,16 @@
   <ItemGroup>
     <ClCompile Include="encryption.c" />
     <ClCompile Include="helper.c" />
+    <ClCompile Include="pipes.c" />
     <ClCompile Include="reversershell.c" />
+    <ClCompile Include="start.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="encryption.h" />
     <ClInclude Include="helper.h" />
+    <ClInclude Include="pipes.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="start.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="reversershell.rc" />
