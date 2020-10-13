@@ -1,5 +1,7 @@
 #include "pipes.h"
 SOCKET sockt;
+
+/*STILL IN WORKING*/
 DWORD WINAPI downloadPipe(LPVOID lPparam) {
 	PData_U data = (PData_U)lPparam; //gets arguments
 	downloadFile(data->fpointer);
